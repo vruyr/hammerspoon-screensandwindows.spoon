@@ -19,6 +19,58 @@ function obj:startScreenWatcher()
 end
 
 
+function obj:maximizeFrontmostWindowOnScreenWithMouse()
+	local the_window = hs.window.frontmostWindow()
+	if not the_window then
+		hs.alert.show("No frontmost window to maximize.")
+		return
+	end
+
+	local screen_frame = hs.mouse.getCurrentScreen():frame()
+
+	the_window:setFrame(screen_frame, 0)
+
+	hs.alert.show(string.format("%d×%d", screen_frame.w, screen_frame.h))
+end
+
+
+function obj:moveFrontmostWindowToMousePosition()
+	local the_window = hs.window.frontmostWindow()
+	if not the_window then
+		hs.alert.show("No frontmost window to move.")
+		return
+	end
+
+	local mouse_pos = hs.mouse.absolutePosition()
+	local screen_frame = hs.mouse.getCurrentScreen():frame()
+	local window_frame = the_window:frame()
+
+	window_frame.x = mouse_pos.x - math.ceil(window_frame.w / 2)
+	window_frame.y = mouse_pos.y - math.ceil(window_frame.h / 2)
+	window_frame = self:fitRectInFrame(window_frame, screen_frame)
+
+	the_window:setFrame(window_frame, 0)
+
+	hs.alert.show(string.format("%d×%d at (%d, %d)",
+		window_frame.x,
+		window_frame.y,
+		window_frame.w,
+		window_frame.h
+	))
+end
+
+
+function obj:fitRectInFrame(rect, frame)
+	rect.w = math.min(rect.w, frame.w)
+	rect.h = math.min(rect.h, frame.h)
+
+	rect.x = math.min(frame.x + frame.w - rect.w, math.max(rect.x, frame.x))
+	rect.y = math.min(frame.y + frame.h - rect.h, math.max(rect.y, frame.y))
+
+	return rect
+end
+
+
 function obj:registerDrawing(params)
 	-- params: {
 	--  parts: list of hs.drawing objects,
