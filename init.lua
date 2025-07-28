@@ -5,6 +5,7 @@ function obj:init()
 	self._screenWatcher = nil
 	self._screenDrawings = {} -- Keys are arbitrary, values are list of hs.drawing objects.
 	self._clearDrawingsHotkey = nil
+	self._moveAndMaximizeAlert = nil
 end
 
 
@@ -30,7 +31,10 @@ function obj:maximizeFrontmostWindowOnScreenWithMouse()
 
 	the_window:setFrame(screen_frame, 0)
 
-	hs.alert.show(string.format("%d×%d", screen_frame.w, screen_frame.h))
+	if self._moveAndMaximizeAlert then
+		hs.alert.closeSpecific(self._moveAndMaximizeAlert)
+	end
+	self._moveAndMaximizeAlert = hs.alert.show(string.format("%d×%d", screen_frame.w, screen_frame.h))
 end
 
 
@@ -51,7 +55,10 @@ function obj:moveFrontmostWindowToMousePosition()
 
 	the_window:setFrame(window_frame, 0)
 
-	hs.alert.show(string.format("%d×%d at (%d, %d)",
+	if self._moveAndMaximizeAlert then
+		hs.alert.closeSpecific(self._moveAndMaximizeAlert)
+	end
+	self._moveAndMaximizeAlert = hs.alert.show(string.format("%d×%d at (%d, %d)",
 		window_frame.x,
 		window_frame.y,
 		window_frame.w,
