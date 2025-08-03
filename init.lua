@@ -7,6 +7,33 @@ function obj:init()
 	self._clearDrawingsHotkey = nil
 	self._moveAndMaximizeAlert = nil
 	self._numberOfTimesToTryToResize = 10 -- an arbitrary number
+	self._didSystemChecksPass = nil
+
+
+	local hotkeySettingsActual = hs.execute(
+		hs.spoons.resourcePath("symbolichotkeys.swift") .. " 79 81"
+	)
+	local hotkeySettingsExpected = {
+		"ON  Move left a space: Control-Left",
+		"ON  Move right a space: Control-Right",
+	}
+	hotkeySettingsExpected = table.concat(hotkeySettingsExpected, "\n") .. "\n"
+	self._didSystemChecksPass = (
+		hotkeySettingsActual == hotkeySettingsExpected
+	)
+	print("Hotkeys:\n\n" .. hotkeySettingsActual)
+	local msg = "Keyboard Shortcuts in System Settings are "
+	if self._didSystemChecksPass then
+		print(msg .. "configured as expected.")
+	else
+		print(msg .. "not configured to expectation.")
+		print("Expected:\n\n" .. hotkeySettingsExpected)
+	end
+end
+
+
+function obj:didSystemChecksPass()
+	return self._didSystemChecksPass
 end
 
 
@@ -372,6 +399,132 @@ function obj:drawText(params)
 	end
 
 	return drawing
+end
+
+
+function obj:addSpaceToScreen(screen, closeMC)
+	if not screen then
+		return nil, "ERROR: addSpaceToScreen was called with nil screen."
+	end
+	local screenUUID = screen:getUUID()
+	local spacesBefore, err = hs.spaces.spacesForScreen(screenUUID)
+	if not spacesBefore then
+		return nil, "Failed to retrieve spaces for a screen: " .. tostring(err)
+	end
+	local ok, err = hs.spaces.addSpaceToScreen(screenUUID, closeMC)
+	if not ok then
+		return nil, "Failed to add a new space: " .. tostring(err)
+	end
+	local spacesAfter, err = hs.spaces.spacesForScreen(screenUUID)
+	if not spacesAfter then
+		return nil, "Failed to retrieve spaces for a screen: " .. tostring(err)
+	end
+	local newSpace = nil
+	for _, space in ipairs(spacesAfter) do
+		if not hs.fnutils.contains(spacesBefore, space) then
+			newSpace = space
+			break
+		end
+	end
+	if not newSpace then
+		return nil, "ERROR: Could not find the newly added space."
+	end
+	return newSpace
+end
+
+
+function obj:addSpaceToScreenWithMouseAndSwitchToIt()
+	-- Returns one of:
+	--   Success: (spaceId, screen)
+	--   Failure: (nil, screen, err)
+
+	local screenWithMouse = hs.mouse.getCurrentScreen()
+	if not screenWithMouse then
+		return nil, nil, "No screen found under the mouse cursor."
+	end
+	local newSpace, err = self:addSpaceToScreen(screenWithMouse, false)
+	if not newSpace then
+		return nil, screenWithMouse, "Failed to create a new space: " .. tostring(err)
+	end
+
+	local ok, err = hs.spaces.gotoSpace(newSpace)
+	if not ok then
+		return nil, screenWithMouse, "Failed to switch spaces: " .. tostring(err)
+	end
+
+	return newSpace, screenWithMouse
+end
+
+
+function obj:removeCurrentSpaceOnScreenWithMouse()
+	if not self:didSystemChecksPass() then
+		return nil, "The system configuration does not match expectation."
+	end
+
+	local screenWithMouse = hs.mouse.getCurrentScreen()
+	if not screenWithMouse then
+		return nil, "No screen found under the mouse cursor."
+	end
+
+	local screenWithMouseUuid = screenWithMouse:getUUID()
+	local spaces, err = hs.spaces.spacesForScreen(screenWithMouseUuid)
+	if not spaces then
+		return nil, "Failed to retrieve spaces for a screen: " .. tostring(err)
+	end
+	local userSpaces = hs.fnutils.filter(spaces, function(space)
+		local spaceType, err = hs.spaces.spaceType(space)
+		if not spaceType then
+			print("Failed to determine space type: ", space, hs.inspect(err))
+			return false
+		end
+		return spaceType == "user"
+	end)
+
+	if #userSpaces < 2 then
+		return nil, "Cannot remove the last user space on this screen."
+	end
+
+	local currentSpace, err = hs.spaces.activeSpaceOnScreen(screenWithMouseUuid)
+	if not currentSpace then
+		return nil, "Failed to get the current space for screen: " .. tostring(err)
+	end
+
+	local currentSpaceIndex = hs.fnutils.indexOf(spaces, currentSpace)
+	local arrowKeyCode = (
+		#spaces == currentSpaceIndex  -- if we are on the last space
+		and hs.keycodes.map.left      -- switch to the previous space
+		or hs.keycodes.map.right      -- otherswise to the next space
+	)
+
+	-- Moving the mouse to top of the scren will have Mission Control show previews.
+	local mousePreviousPosition = hs.mouse.absolutePosition()
+	hs.mouse.absolutePosition(screenWithMouse:fullFrame().topleft)
+
+	hs.spaces.openMissionControl()
+
+	hs.timer.doAfter(hs.spaces.MCwaitTime, function()
+		hs.mouse.absolutePosition(mousePreviousPosition)
+
+		-- Sending key events to Dock to switch spaces.
+		-- The key combination is asserted during initalization.
+		hs.application.launchOrFocus("Dock")
+		hs.eventtap.event.newKeyEvent(hs.keycodes.map.ctrl, true):post()
+		hs.eventtap.event.newKeyEvent(arrowKeyCode, true):post()
+		hs.eventtap.event.newKeyEvent(arrowKeyCode, false):post()
+		hs.eventtap.event.newKeyEvent(hs.keycodes.map.ctrl, false):post()
+
+		local spaceChangeWatcher
+		spaceChangeWatcher = hs.spaces.watcher.new(function()
+			-- Even if `hs.spaces.removeSpace` fails,
+			-- there is nothing much we can do.
+			hs.spaces.removeSpace(currentSpace, true)
+			spaceChangeWatcher:stop()
+			spaceChangeWatcher = nil
+		end)
+		spaceChangeWatcher:start()
+	end)
+
+	return true
 end
 
 
