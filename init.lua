@@ -249,9 +249,9 @@ function obj:drawScreenLayout()
 			show = true
 		})
 
-		-- Screen Dimensions
+		-- Screen Mode
 		table.insert(drawingParts, self:drawText{
-			text = string.format("%d×%d", f.w, f.h),
+			text = screen:currentMode().desc,
 			style = LABEL_TEXT_STYLE,
 			frame = screenDrawingInnerArea,
 			position = {
