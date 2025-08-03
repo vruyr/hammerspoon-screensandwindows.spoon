@@ -6,6 +6,7 @@ function obj:init()
 	self._screenDrawings = {} -- Keys are arbitrary, values are list of hs.drawing objects.
 	self._clearDrawingsHotkey = nil
 	self._moveAndMaximizeAlert = nil
+	self._numberOfTimesToTryToResize = 10 -- an arbitrary number
 end
 
 
@@ -21,48 +22,48 @@ end
 
 
 function obj:maximizeFrontmostWindowOnScreenWithMouse()
-	local the_window = hs.window.frontmostWindow()
-	if not the_window then
+	local theWindow = hs.window.frontmostWindow()
+	if not theWindow then
 		hs.alert.show("No frontmost window to maximize.")
 		return
 	end
 
-	local screen_frame = hs.mouse.getCurrentScreen():frame()
+	local screenFrame = hs.mouse.getCurrentScreen():frame()
 
-	the_window:setFrame(screen_frame, 0)
+	self:setWindowFrame(theWindow, screenFrame)
 
 	if self._moveAndMaximizeAlert then
 		hs.alert.closeSpecific(self._moveAndMaximizeAlert)
 	end
-	self._moveAndMaximizeAlert = hs.alert.show(string.format("%d×%d", screen_frame.w, screen_frame.h))
+	self._moveAndMaximizeAlert = hs.alert.show(string.format("%d×%d", screenFrame.w, screenFrame.h))
 end
 
 
 function obj:moveFrontmostWindowToMousePosition()
-	local the_window = hs.window.frontmostWindow()
-	if not the_window then
+	local theWindow = hs.window.frontmostWindow()
+	if not theWindow then
 		hs.alert.show("No frontmost window to move.")
 		return
 	end
 
-	local mouse_pos = hs.mouse.absolutePosition()
-	local screen_frame = hs.mouse.getCurrentScreen():frame()
-	local window_frame = the_window:frame()
+	local mousePos = hs.mouse.absolutePosition()
+	local screenFrame = hs.mouse.getCurrentScreen():frame()
+	local windowFrame = theWindow:frame()
 
-	window_frame.x = mouse_pos.x - math.ceil(window_frame.w / 2)
-	window_frame.y = mouse_pos.y - math.ceil(window_frame.h / 2)
-	window_frame = self:fitRectInFrame(window_frame, screen_frame)
+	windowFrame.x = mousePos.x - math.ceil(windowFrame.w / 2)
+	windowFrame.y = mousePos.y - math.ceil(windowFrame.h / 2)
+	windowFrame = self:fitRectInFrame(windowFrame, screenFrame)
 
-	the_window:setFrame(window_frame, 0)
+	self:setWindowFrame(theWindow, windowFrame)
 
 	if self._moveAndMaximizeAlert then
 		hs.alert.closeSpecific(self._moveAndMaximizeAlert)
 	end
 	self._moveAndMaximizeAlert = hs.alert.show(string.format("%d×%d at (%d, %d)",
-		window_frame.x,
-		window_frame.y,
-		window_frame.w,
-		window_frame.h
+		windowFrame.x,
+		windowFrame.y,
+		windowFrame.w,
+		windowFrame.h
 	))
 end
 
@@ -75,6 +76,25 @@ function obj:fitRectInFrame(rect, frame)
 	rect.y = math.min(frame.y + frame.h - rect.h, math.max(rect.y, frame.y))
 
 	return rect
+end
+
+
+function obj:setWindowFrame(window, frame)
+	if window:isFullScreen() then
+		window:setFullscreen(false)
+		hs.timer.doAfter(1, function()
+			self:setWindowFrame(window, frame)
+		end)
+		return
+	end
+
+	local attempts = 0
+	while attempts <= self._numberOfTimesToTryToResize and window:frame() ~= frame do
+		window:setFrame(frame, 0)
+		attempts = attempts + 1
+	end
+
+	print("Had " .. attempts .. " attempts at setting window frame.")
 end
 
 
