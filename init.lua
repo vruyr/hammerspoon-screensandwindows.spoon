@@ -403,56 +403,62 @@ end
 
 
 function obj:addSpaceToScreen(screen, closeMC)
+	-- Returns one of:
+	--   Success: (spaceId, spaceIndex, spaceCount)
+	--   Failure: (nil, nil, nil, errorText)
+
 	if not screen then
-		return nil, "ERROR: addSpaceToScreen was called with nil screen."
+		return nil, nil, nil, "ERROR: addSpaceToScreen was called with nil screen."
 	end
 	local screenUUID = screen:getUUID()
 	local spacesBefore, err = hs.spaces.spacesForScreen(screenUUID)
 	if not spacesBefore then
-		return nil, "Failed to retrieve spaces for a screen: " .. tostring(err)
+		return nil, nil, nil, "Failed to retrieve spaces for a screen: " .. tostring(err)
 	end
 	local ok, err = hs.spaces.addSpaceToScreen(screenUUID, closeMC)
 	if not ok then
-		return nil, "Failed to add a new space: " .. tostring(err)
+		return nil, nil, nil, "Failed to add a new space: " .. tostring(err)
 	end
 	local spacesAfter, err = hs.spaces.spacesForScreen(screenUUID)
 	if not spacesAfter then
-		return nil, "Failed to retrieve spaces for a screen: " .. tostring(err)
+		return nil, nil, nil, "Failed to retrieve spaces for a screen: " .. tostring(err)
 	end
 	local newSpace = nil
-	for _, space in ipairs(spacesAfter) do
+	local newSpaceIndex = nil
+	for index, space in ipairs(spacesAfter) do
 		if not hs.fnutils.contains(spacesBefore, space) then
 			newSpace = space
+			newSpaceIndex = index
 			break
 		end
 	end
 	if not newSpace then
-		return nil, "ERROR: Could not find the newly added space."
+		return nil, nil, nil, "ERROR: Could not find the newly added space."
 	end
-	return newSpace
+	return newSpace, newSpaceIndex, #spacesAfter
 end
 
 
 function obj:addSpaceToScreenWithMouseAndSwitchToIt()
 	-- Returns one of:
-	--   Success: (spaceId, screen)
+	--   Success: (newSpaceId, screen)
 	--   Failure: (nil, screen, err)
 
 	local screenWithMouse = hs.mouse.getCurrentScreen()
 	if not screenWithMouse then
 		return nil, nil, "No screen found under the mouse cursor."
 	end
-	local newSpace, err = self:addSpaceToScreen(screenWithMouse, false)
-	if not newSpace then
+	local newSpaceId, newSpaceIndex, spaceCount, err = self:addSpaceToScreen(screenWithMouse, false)
+	if not newSpaceId then
 		return nil, screenWithMouse, "Failed to create a new space: " .. tostring(err)
 	end
 
-	local ok, err = hs.spaces.gotoSpace(newSpace)
+	local ok, err = hs.spaces.gotoSpace(newSpaceId)
 	if not ok then
 		return nil, screenWithMouse, "Failed to switch spaces: " .. tostring(err)
 	end
 
-	return newSpace, screenWithMouse
+	return newSpaceId, screenWithMouse
 end
 
 
