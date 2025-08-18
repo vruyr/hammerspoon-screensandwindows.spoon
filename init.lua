@@ -29,6 +29,64 @@ function obj:init()
 		print(msg .. "not configured to expectation.")
 		print("Expected:\n\n" .. hotkeySettingsExpected)
 	end
+
+	self._NOFITICATION_SUCCESS = {
+		style = {
+			-- Rectangle
+			fillColor   = { white = 0, green=0.1, alpha = 0.9 },
+			strokeColor = { green=1, alpha=1 },
+			strokeWidth = 2,
+			radius      = 12,
+
+			-- Text
+			textColor       = { white = 1, alpha = 1 },
+			textFont        = ".AppleSystemUIFont",
+			textSize        = 27,
+			textStyle       = nil,
+			padding         = nil,
+			atScreenEdge    = 0,
+			fadeInDuration  = 0.15,
+			fadeOutDuration = 0.15,
+		},
+		durationSec = 2,
+	}
+
+	self._NOFITICATION_FAILURE = {
+		style = {
+			-- Rectangle
+			fillColor   = { white = 0, red=0.1, alpha = 0.9 },
+			strokeColor = { red=1, alpha=1 },
+			strokeWidth = 2,
+			radius      = 12,
+
+			-- Text
+			textColor       = { white = 1, alpha = 1 },
+			textFont        = ".AppleSystemUIFont",
+			textSize        = 27,
+			textStyle       = nil,
+			padding         = nil,
+			atScreenEdge    = 0,
+			fadeInDuration  = 0.15,
+			fadeOutDuration = 0.15,
+		},
+		durationSec = 5,
+	}
+
+	function showNotification(params, msgFmt, ...)
+		local msg = string.format(msgFmt, ...)
+		local style = params.style
+		local screen = hs.mouse.getCurrentScreen() or hs.screen.primaryScreen()
+		local durationSec = params.durationSec
+		return hs.alert.show(msg, style, screen, durationSec)
+	end
+
+	self._show_notification_success = function(msgFmt, ...)
+		return showNotification(self._NOFITICATION_SUCCESS, msgFmt, ...)
+	end
+
+	self._show_notification_failure = function(msgFmt, ...)
+		return showNotification(self._NOFITICATION_SUCCESS, msgFmt, ...)
+	end
 end
 
 
@@ -51,7 +109,7 @@ end
 function obj:maximizeFrontmostWindowOnScreenWithMouse()
 	local theWindow = hs.window.frontmostWindow()
 	if not theWindow then
-		hs.alert.show("No frontmost window to maximize.")
+		self._show_notification_failure("No frontmost window to maximize.")
 		return
 	end
 
@@ -62,14 +120,16 @@ function obj:maximizeFrontmostWindowOnScreenWithMouse()
 	if self._moveAndMaximizeAlert then
 		hs.alert.closeSpecific(self._moveAndMaximizeAlert)
 	end
-	self._moveAndMaximizeAlert = hs.alert.show(string.format("%d×%d", screenFrame.w, screenFrame.h))
+	self._moveAndMaximizeAlert = self._show_notification_success(
+		"%d×%d", screenFrame.w, screenFrame.h
+	)
 end
 
 
 function obj:moveFrontmostWindowToMousePosition()
 	local theWindow = hs.window.frontmostWindow()
 	if not theWindow then
-		hs.alert.show("No frontmost window to move.")
+		self._show_notification_failure("No frontmost window to move.")
 		return
 	end
 
@@ -86,12 +146,13 @@ function obj:moveFrontmostWindowToMousePosition()
 	if self._moveAndMaximizeAlert then
 		hs.alert.closeSpecific(self._moveAndMaximizeAlert)
 	end
-	self._moveAndMaximizeAlert = hs.alert.show(string.format("%d×%d at (%d, %d)",
+	self._moveAndMaximizeAlert = self._show_notification_success(
+		"%d×%d at (%d, %d)",
 		windowFrame.x,
 		windowFrame.y,
 		windowFrame.w,
 		windowFrame.h
-	))
+	)
 end
 
 
