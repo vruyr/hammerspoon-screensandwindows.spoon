@@ -221,8 +221,8 @@ function obj:drawScreenLayout()
 	local DRAWING_LEVEL = "overlay"
 
 	local screens = hs.screen.allScreens()
-	local mouseScreen = hs.mouse.getCurrentScreen()
-	local mouseScreenFrame = mouseScreen:fullFrame()
+	local drawScreen = hs.mouse.getCurrentScreen() or hs.screen.primaryScreen()
+	local drawScreenFrame = drawScreen:fullFrame()
 
 	-- Find the bounding box multi-screen layout
 	local minX, minY, maxX, maxY = nil, nil, nil, nil
@@ -238,11 +238,11 @@ function obj:drawScreenLayout()
 
 	-- Position and scale of the drawing
 	local scale = math.min(
-		(mouseScreenFrame.w * DRAWING_OCCUPYED_AREA) / layoutW,
-		(mouseScreenFrame.h * DRAWING_OCCUPYED_AREA) / layoutH
+		(drawScreenFrame.w * DRAWING_OCCUPYED_AREA) / layoutW,
+		(drawScreenFrame.h * DRAWING_OCCUPYED_AREA) / layoutH
 	)
-	local offsetX = mouseScreenFrame.x + (mouseScreenFrame.w - layoutW * scale) / 2 - minX * scale
-	local offsetY = mouseScreenFrame.y + (mouseScreenFrame.h - layoutH * scale) / 2 - minY * scale
+	local offsetX = drawScreenFrame.x + (drawScreenFrame.w - layoutW * scale) / 2 - minX * scale
+	local offsetY = drawScreenFrame.y + (drawScreenFrame.h - layoutH * scale) / 2 - minY * scale
 
 	-- All drawings for this run will be stored in this list.
 	local drawingParts = {}
