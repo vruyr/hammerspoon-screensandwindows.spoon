@@ -8,6 +8,7 @@ function obj:init()
 	self._screenDrawings = {} -- Keys are arbitrary, values are list of hs.drawing objects.
 	self._clearDrawingsHotkey = nil
 	self._moveAndMaximizeAlert = nil
+	self._windowReizeAlert = nil
 	self._numberOfTimesToTryToResize = 10 -- an arbitrary number
 	self._didSystemChecksPass = nil
 	self._moveMouseToCenterOfNextScreenLastTimeCalled = 0
@@ -700,6 +701,77 @@ function obj:startShrinkingCircleAnimation(params)
 
 	-- We don't need to clean up `self._shrinkingCircleAnimation` when the animation ends,
 	-- because it has no state. The coroutine will die naturally.
+end
+
+
+obj.windowSizeFractions = {
+	-- Must be sorted in ascending order.
+	{ label = "1/4",  value = 1/4 },
+	{ label = "1/3",  value = 1/3 },
+	{ label = "1/2",  value = 1/2 },
+	{ label = "2/3",  value = 2/3 },
+	{ label = "3/4",  value = 3/4 },
+	{ label = "Full", value = 1   },
+}
+
+
+function obj:resizeWindowToNextSize(window, direction, dimension)
+	local widthOrHeight = dimension == "width" and "w" or "h"
+
+	if not window then
+		return nil, "resizeWindowToNextSize: no window provided."
+	end
+
+	local sizeSeekIndexFirst
+	local sizeSeekIndexLast
+	local sizeSeekStep
+
+	-- Set up seek direction
+	if direction == "grow" then
+		-- First item larger than current size
+		sizeSeekIndexFirst = 1
+		sizeSeekIndexLast = #self.windowSizeFractions
+	elseif direction == "shrink" then
+		-- Last item smaller than current size
+		sizeSeekIndexFirst = #self.windowSizeFractions
+		sizeSeekIndexLast = 1
+	else
+		return nil, "resizeWindowToNextSize: direction must be \"shrink\" or \"grow\"."
+	end
+
+	-- Grow: 1, Shrink: -1
+	sizeSeekStep = sizeSeekIndexFirst > sizeSeekIndexLast and -1 or 1
+
+	-- Window and Screen Frames
+	local screen = window:screen() or hs.mouse.getCurrentScreen() or hs.screen.primaryScreen()
+	local screenFrame = screen:frame()
+	local windowFrame = window:frame()
+
+	local size = windowFrame[widthOrHeight]
+
+	local nextSize
+
+	nextSize = self.windowSizeFractions[sizeSeekIndexLast]
+	for i = sizeSeekIndexFirst, sizeSeekIndexLast, sizeSeekStep do
+		local candidateSize = self.windowSizeFractions[i].value * screenFrame[widthOrHeight]
+		if math.floor((candidateSize - size) * sizeSeekStep) > 0 then
+			nextSize = self.windowSizeFractions[i]
+			break
+		end
+	end
+	size = math.floor(screenFrame[widthOrHeight] * nextSize.value)
+
+	if size ~= windowFrame[widthOrHeight] then
+		windowFrame[widthOrHeight] = size
+		self:setWindowFrame(window, self:fitRectInFrame(windowFrame, screenFrame))
+	end
+
+	local verb = sizeSeekStep == 1 and "Grown" or "Shrunk"
+	if self._windowReizeAlert then
+		hs.alert.closeSpecific(self._windowReizeAlert)
+	end
+	self._windowReizeAlert = self._show_notification_success("%s to %s\n%d×%d", verb, nextSize.label, windowFrame.w, windowFrame.h)
+	return true
 end
 
 
