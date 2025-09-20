@@ -76,7 +76,7 @@ function obj:init()
 		durationSec = 5,
 	}
 
-	function showNotification(params, msgFmt, ...)
+	local function showNotification(params, msgFmt, ...)
 		local msg = string.format(msgFmt, ...)
 		local style = params.style
 		local screen = hs.mouse.getCurrentScreen() or hs.screen.primaryScreen()
@@ -186,7 +186,9 @@ function obj:setWindowFrame(window, frame)
 		attempts = attempts + 1
 	end
 
-	print("Had " .. attempts .. " attempts at setting window frame.")
+	if attempts ~= 1 then
+		print("Had " .. attempts .. " attempts at setting window frame.")
+	end
 end
 
 
