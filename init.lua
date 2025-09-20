@@ -89,7 +89,7 @@ function obj:init()
 	end
 
 	self._show_notification_failure = function(msgFmt, ...)
-		return showNotification(self._NOFITICATION_SUCCESS, msgFmt, ...)
+		return showNotification(self._NOFITICATION_FAILURE, msgFmt, ...)
 	end
 end
 
