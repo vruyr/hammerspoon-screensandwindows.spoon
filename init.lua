@@ -1,3 +1,5 @@
+local utils = require("utils")
+
 local obj = {}
 obj.__index = obj
 
@@ -8,6 +10,8 @@ function obj:init()
 	self._moveAndMaximizeAlert = nil
 	self._numberOfTimesToTryToResize = 10 -- an arbitrary number
 	self._didSystemChecksPass = nil
+	self._moveMouseToCenterOfNextScreenLastTimeCalled = 0
+	self._shrinkingCircleAnimation = nil
 
 
 	local hotkeySettingsActual = hs.execute(
@@ -592,6 +596,108 @@ function obj:removeCurrentSpaceOnScreenWithMouse()
 	end)
 
 	return true
+end
+
+
+function obj:moveMouseToCenterOfNextScreen()
+	-- If called multiple times within one second, cycles through screens.
+	-- Otherwise, move to the screen of the frontmost window.
+
+	local now = hs.timer.secondsSinceEpoch()
+	local elapsed = now - self._moveMouseToCenterOfNextScreenLastTimeCalled
+
+	local nextScreen
+
+	if elapsed > 1 then
+		nextScreen = hs.window.frontmostWindow():screen()
+	else
+		local currentScreen = hs.mouse.getCurrentScreen()
+		nextScreen = (
+			(currentScreen and currentScreen:next())
+			or currentScreen
+			or hs.screen.primaryScreen()
+		)
+	end
+
+	self._moveMouseToCenterOfNextScreenLastTimeCalled = now
+
+	if not nextScreen then
+		self._show_notification_failure("Failed to find a screen to move the mouse to.")
+		return
+	end
+
+	local nextFrame = nextScreen:frame()
+	local nextMousePos = hs.geometry.new(nextFrame).center
+
+	hs.mouse.absolutePosition(nextMousePos)
+	self:startShrinkingCircleAnimation{
+		centerPoint = nextMousePos,
+		radiusFrom = 0.6 * (math.min(nextFrame.w, nextFrame.h) / 2),
+		radiusTo = 16,
+		animationDurationSec = 0.25,
+		animationFrameRate = 30,
+		strokeColor = {red = 1, green = 0, blue = 0, alpha = 1},
+		strokeWidth = 1,
+	}
+end
+
+
+function obj:startShrinkingCircleAnimation(params)
+	-- params.centerPoint: {x: number, y: number}
+	-- params.radiusFrom: number
+	-- params.radiusTo: number
+	-- params.animationDurationSec: number
+	-- params.animationFrameRate: number
+	-- params.strokeColor: {red: number, green: number, blue: number, alpha: number}
+	-- params.strokeWidth: number
+
+	if self._shrinkingCircleAnimation then
+		self._shrinkingCircleAnimation.cancelled = true
+		self._shrinkingCircleAnimation = nil
+	end
+
+	local theAnimation = {
+		cancelled = false,
+	}
+
+	coroutine.wrap(function()
+		local radius = params.radiusFrom
+
+		local circle = hs.drawing.circle(hs.geometry.rect(
+			params.centerPoint.x - radius,
+			params.centerPoint.y - radius,
+			radius * 2,
+			radius * 2
+		))
+
+		circle:setStrokeColor(params.strokeColor)
+		circle:setStrokeWidth(params.strokeWidth)
+		circle:setFill(false)
+		circle:setLevel("overlay")
+		circle:show()
+
+		local animationSteps = math.ceil(params.animationFrameRate * params.animationDurationSec)
+		local radiusStep = (params.radiusFrom - params.radiusTo) / animationSteps
+		local animationFrameDurationSec = params.animationDurationSec / animationSteps
+
+		while not theAnimation.cancelled and radius > params.radiusTo do
+			coroutine.applicationYield(animationFrameDurationSec)
+			radius = radius - radiusStep
+
+			circle:setSize(hs.geometry.size(radius * 2, radius * 2))
+			circle:setTopLeft(hs.geometry.point(
+				params.centerPoint.x - radius,
+				params.centerPoint.y - radius
+			))
+		end
+
+		circle:delete()
+	end)()
+
+	self._shrinkingCircleAnimation = theAnimation
+
+	-- We don't need to clean up `self._shrinkingCircleAnimation` when the animation ends,
+	-- because it has no state. The coroutine will die naturally.
 end
 
 
