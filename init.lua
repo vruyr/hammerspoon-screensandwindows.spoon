@@ -13,6 +13,7 @@ function obj:init()
 	self._didSystemChecksPass = nil
 	self._moveMouseToCenterOfNextScreenLastTimeCalled = 0
 	self._shrinkingCircleAnimation = nil
+	self._previousLayout = nil
 
 
 	local hotkeySettingsActual = hs.execute(
@@ -105,7 +106,22 @@ function obj:startScreenWatcher()
 		self._screenWatcher:stop()
 	end
 	self._screenWatcher = hs.screen.watcher.new(function()
-		self:drawScreenLayout()
+		local screens = hs.screen.allScreens()
+		local currentLayout = ""
+		for _, screen in ipairs(screens) do
+			local f = screen:fullFrame()
+			currentLayout = currentLayout .. string.format(
+				"%s:%d,%d,%d,%d:%s:%s;",
+				screen:id(),
+				f.x, f.y, f.w, f.h,
+				screen:name(),
+				screen:currentMode().desc
+			)
+		end
+		if self._previousLayout ~= currentLayout then
+			self._previousLayout = currentLayout
+			self:drawScreenLayout(screens)
+		end
 	end)
 	self._screenWatcher:start()
 end
@@ -265,7 +281,7 @@ function obj:removeClearDrawingsHotkey()
 end
 
 
-function obj:drawScreenLayout()
+function obj:drawScreenLayout(screens)
 	-- Note that the drawing will appear on fullscreen apps only if
 	-- Hammerspoon is not showing a dock icon.
 	--
@@ -288,7 +304,6 @@ function obj:drawScreenLayout()
 	local DRAWING_DURATION_SEC = 10
 	local DRAWING_LEVEL = "overlay"
 
-	local screens = hs.screen.allScreens()
 	local drawScreen = hs.mouse.getCurrentScreen() or hs.screen.primaryScreen()
 	local drawScreenFrame = drawScreen:fullFrame()
 
