@@ -101,6 +101,23 @@ function obj:didSystemChecksPass()
 end
 
 
+function GenFrameContentString(f)
+	return string.format("%d,%d,%d,%d", f.x, f.y, f.w, f.h)
+end
+
+
+function GenScreenLayoutContentString(screen)
+	return string.format(
+		"%s:%s:%s:%s",
+		screen:id(),
+		screen:name(),
+		GenFrameContentString(screen:fullFrame()),
+		GenFrameContentString(screen:frame()),
+		screen:currentMode().desc
+	)
+end
+
+
 function obj:startScreenWatcher()
 	if self._screenWatcher then
 		self._screenWatcher:stop()
@@ -109,14 +126,7 @@ function obj:startScreenWatcher()
 		local screens = hs.screen.allScreens()
 		local currentLayout = ""
 		for _, screen in ipairs(screens) do
-			local f = screen:fullFrame()
-			currentLayout = currentLayout .. string.format(
-				"%s:%d,%d,%d,%d:%s:%s;",
-				screen:id(),
-				f.x, f.y, f.w, f.h,
-				screen:name(),
-				screen:currentMode().desc
-			)
+			currentLayout = currentLayout .. GenScreenLayoutContentString(screen) .. ";"
 		end
 		if self._previousLayout ~= currentLayout then
 			self._previousLayout = currentLayout
