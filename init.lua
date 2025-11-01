@@ -291,6 +291,32 @@ function obj:removeClearDrawingsHotkey()
 end
 
 
+function GetOuterRects(rect1, rect2)
+	local outerRects = {}
+	-- Top
+	if rect2.y > rect1.y then
+		table.insert(outerRects, hs.geometry.rect(rect1.x, rect1.y, rect1.w, rect2.y - rect1.y))
+	end
+	-- Bottom
+	local bottomY = rect2.y + rect2.h
+	local fullBottomY = rect1.y + rect1.h
+	if fullBottomY > bottomY then
+		table.insert(outerRects, hs.geometry.rect(rect1.x, bottomY, rect1.w, fullBottomY - bottomY))
+	end
+	-- Left
+	if rect2.x > rect1.x then
+		table.insert(outerRects, hs.geometry.rect(rect1.x, rect2.y, rect2.x - rect1.x, rect2.h))
+	end
+	-- Right
+	local rightX = rect2.x + rect2.w
+	local fullRightX = rect1.x + rect1.w
+	if fullRightX > rightX then
+		table.insert(outerRects, hs.geometry.rect(rightX, rect2.y, fullRightX - rightX, rect2.h))
+	end
+	return outerRects
+end
+
+
 function obj:drawScreenLayout(screens)
 	-- Note that the drawing will appear on fullscreen apps only if
 	-- Hammerspoon is not showing a dock icon.
@@ -299,8 +325,9 @@ function obj:drawScreenLayout(screens)
 
 	-- Drawing Parameters
 	local RECT_STROKE_WIDTH = 2
-	local RECT_STROKE_COLOR = {red=1, green=1, blue=1, alpha=0.7}
-	local RECT_FILL_COLOR = {red=0, green=0, blue=0, alpha=0.7}
+	local RECT_STROKE_COLOR      = {red=1, green=1, blue=1, alpha=0.7}
+	local RECT_FILL_COLOR        = {red=0, green=0, blue=0, alpha=0.7}
+	local RECT_OUTER_FILL_COLOR  = {red=0, green=0, blue=0, alpha=0.2}
 	local RECT_INNER_MARGIN_PX = 10
 	local LABEL_TEXT_STYLE = {
 		font = { name = "Monaco", size = 12 },
@@ -348,12 +375,11 @@ function obj:drawScreenLayout(screens)
 		local w = f.w * scale
 		local h = f.h * scale
 
-		local screenDrawingInnerArea = hs.geometry.rect(
-			x + RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX,
-			y + RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX,
-			w - (RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX) * 2,
-			h - (RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX) * 2
-		)
+		local innerF = screen:frame()
+		local innerX = innerF.x * scale + offsetX
+		local innerY = innerF.y * scale + offsetY
+		local innerW = innerF.w * scale
+		local innerH = innerF.h * scale
 
 		local screenRect = hs.drawing.rectangle(hs.geometry.rect(x, y, w, h))
 		screenRect:setStrokeColor(RECT_STROKE_COLOR)
@@ -362,6 +388,28 @@ function obj:drawScreenLayout(screens)
 		screenRect:setLevel(DRAWING_LEVEL)
 		screenRect:show()
 		table.insert(drawingParts, screenRect)
+
+		for _, rect in ipairs(GetOuterRects(f, innerF)) do
+			local sx = rect.x * scale + offsetX
+			local sy = rect.y * scale + offsetY
+			local sw = rect.w * scale
+			local sh = rect.h * scale
+			local scaledRect = hs.geometry.rect(sx, sy, sw, sh)
+			local outerRect = hs.drawing.rectangle(scaledRect)
+			outerRect:setStrokeColor(RECT_STROKE_COLOR)
+			outerRect:setFillColor(RECT_OUTER_FILL_COLOR)
+			outerRect:setStrokeWidth(RECT_STROKE_WIDTH)
+			outerRect:setLevel(DRAWING_LEVEL)
+			outerRect:show()
+			table.insert(drawingParts, outerRect)
+		end
+
+		local screenDrawingInnerArea = hs.geometry.rect(
+			innerX + RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX,
+			innerY + RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX,
+			innerW - (RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX) * 2,
+			innerH - (RECT_STROKE_WIDTH + RECT_INNER_MARGIN_PX) * 2
+		)
 
 		-- Screen Name
 		table.insert(drawingParts, self:drawText{
