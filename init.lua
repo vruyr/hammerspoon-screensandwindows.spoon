@@ -13,7 +13,7 @@ function obj:init()
 	self._didSystemChecksPass = nil
 	self._moveMouseToCenterOfNextScreenLastTimeCalled = 0
 	self._shrinkingCircleAnimation = nil
-	self._previousLayout = nil
+	self._previousLayout = GenContentStringForScreens(hs.screen.allScreens())
 
 
 	local hotkeySettingsActual = hs.execute(
@@ -106,7 +106,7 @@ function GenFrameContentString(f)
 end
 
 
-function GenScreenLayoutContentString(screen)
+function GenContentStringForOneScreen(screen)
 	return string.format(
 		"%s:%s:%s:%s",
 		screen:id(),
@@ -118,17 +118,26 @@ function GenScreenLayoutContentString(screen)
 end
 
 
+function GenContentStringForScreens(screens)
+	local contentString = ""
+	for _, screen in ipairs(screens) do
+		contentString = contentString .. GenContentStringForOneScreen(screen) .. ";"
+	end
+	return contentString
+end
+
+
 function obj:startScreenWatcher()
 	if self._screenWatcher then
 		self._screenWatcher:stop()
 	end
 	self._screenWatcher = hs.screen.watcher.new(function()
 		local screens = hs.screen.allScreens()
-		local currentLayout = ""
-		for _, screen in ipairs(screens) do
-			currentLayout = currentLayout .. GenScreenLayoutContentString(screen) .. ";"
-		end
+		local currentLayout = GenContentStringForScreens(screens)
 		if self._previousLayout ~= currentLayout then
+			print("Screen layout changed:")
+			print("Previous: " .. tostring(self._previousLayout))
+			print("Current:  " .. tostring(currentLayout))
 			self._previousLayout = currentLayout
 			self:drawScreenLayout(screens)
 		end
